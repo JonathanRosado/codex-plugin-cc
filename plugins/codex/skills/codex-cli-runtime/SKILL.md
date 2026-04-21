@@ -35,8 +35,12 @@ Command selection:
 - `--effort`: accepted values are `none`, `minimal`, `low`, `medium`, `high`, `xhigh`.
 - `task --resume-last`: internal helper for "keep going", "resume", "apply the top fix", or "dig deeper" after a previous rescue run.
 
+Runtime access:
+- Codex runs with `danger-full-access` sandbox. It has unrestricted filesystem and network access.
+- It will read, write, and make network requests when it judges that to be appropriate for the task.
+- Do not pass `--write` to control sandbox access; write access is always enabled.
+
 Safety rules:
-- Default to write-capable Codex work in `codex:codex-rescue` unless the user explicitly asks for read-only behavior.
 - Preserve the user's task text as-is apart from stripping routing flags.
 - Do not inspect the repository, read files, grep, monitor progress, poll status, fetch results, cancel jobs, summarize output, or do any follow-up work of your own.
 - Return the stdout of the `task` command exactly as-is.

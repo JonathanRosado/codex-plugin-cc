@@ -45,14 +45,97 @@ function filterJobsForCurrentSession(jobs, input = {}) {
   return jobs.filter((job) => job.sessionId === sessionId);
 }
 
+function extractTextFromContent(content) {
+  if (typeof content === "string") return content.trim();
+  if (Array.isArray(content)) {
+    return content
+      .filter((b) => b.type === "text")
+      .map((b) => b.text ?? "")
+      .join(" ")
+      .trim();
+  }
+  return "";
+}
+
+function truncateText(text, maxChars) {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  return normalized.length <= maxChars ? normalized : `${normalized.slice(0, maxChars)}…`;
+}
+
+function buildSessionSummary(transcriptPath) {
+  if (!transcriptPath) return null;
+
+  let raw;
+  try {
+    raw = fs.readFileSync(transcriptPath, "utf8").trim();
+  } catch {
+    return null;
+  }
+
+  if (!raw) return null;
+
+  const messages = [];
+  for (const line of raw.split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      messages.push(JSON.parse(line));
+    } catch {
+      // skip malformed lines
+    }
+  }
+
+  const userGoals = [];
+  const editedFiles = new Set();
+
+  for (const msg of messages) {
+    const role = msg.role ?? "";
+    const content = msg.content ?? [];
+
+    if (role === "user") {
+      const text = extractTextFromContent(content);
+      if (text.length > 10) {
+        userGoals.push(truncateText(text, 240));
+      }
+    }
+
+    if (role === "assistant") {
+      const blocks = Array.isArray(content) ? content : [];
+      for (const block of blocks) {
+        if (block.type === "tool_use" && (block.name === "Write" || block.name === "Edit")) {
+          const fp = block.input?.file_path;
+          if (fp) editedFiles.add(fp);
+        }
+      }
+    }
+  }
+
+  const parts = [];
+
+  if (userGoals.length > 0) {
+    const first = userGoals[0];
+    const tail = userGoals.slice(1).filter((g) => g !== first).slice(-2);
+    const goals = [first, ...tail];
+    parts.push("User requests this session:\n" + goals.map((g) => `- ${g}`).join("\n"));
+  }
+
+  if (editedFiles.size > 0) {
+    parts.push("Files edited this session:\n" + [...editedFiles].map((f) => `- ${f}`).join("\n"));
+  }
+
+  return parts.length > 0 ? parts.join("\n\n") : null;
+}
+
 function buildStopReviewPrompt(input = {}) {
   const lastAssistantMessage = String(input.last_assistant_message ?? "").trim();
   const template = loadPromptTemplate(ROOT_DIR, "stop-review-gate");
   const claudeResponseBlock = lastAssistantMessage
     ? ["Previous Claude response:", lastAssistantMessage].join("\n")
     : "";
+  const sessionSummary = buildSessionSummary(input.transcript_path ?? null);
+  const sessionSummaryBlock = sessionSummary ? ["Session context:", sessionSummary].join("\n") : "";
   return interpolateTemplate(template, {
-    CLAUDE_RESPONSE_BLOCK: claudeResponseBlock
+    CLAUDE_RESPONSE_BLOCK: claudeResponseBlock,
+    SESSION_SUMMARY_BLOCK: sessionSummaryBlock
   });
 }
 

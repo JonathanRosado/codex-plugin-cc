@@ -9,6 +9,8 @@ If the previous Claude turn was only a status update, a summary, a setup/login c
 Challenge whether that specific work and its design choices should ship.
 
 {{CLAUDE_RESPONSE_BLOCK}}
+
+{{SESSION_SUMMARY_BLOCK}}
 </task>
 
 <compact_output_contract>

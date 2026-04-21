@@ -24,7 +24,7 @@ they already have.
 Add the marketplace in Claude Code:
 
 ```bash
-/plugin marketplace add JonathanRosado/codex-plugin-cc
+/plugin marketplace add JonathanRosado/codex-jr-plugin-cc
 ```
 
 Install the plugin:
